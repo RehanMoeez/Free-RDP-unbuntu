@@ -9,25 +9,25 @@ jobs:
     timeout-minutes: 360   # 6 hours max runtime
 
     steps:
-      - name: Install XFCE Desktop + RDP
+      - name: Install MATE Desktop + RDP
         run: |
           sudo apt update
           sudo DEBIAN_FRONTEND=noninteractive apt install -y \
-            xrdp xfce4 xfce4-goodies dbus-x11 policykit-1 \
+            xrdp mate-core mate-desktop-environment dbus-x11 policykit-1 \
             firefox xterm
 
-          # Configure XFCE as the default session
-          echo "startxfce4" > ~/.xsession
-          echo "startxfce4" | sudo tee /etc/skel/.xsession
+          # Configure MATE as the default session
+          echo "mate-session" > ~/.xsession
+          echo "mate-session" | sudo tee /etc/skel/.xsession
 
-          # Fix for XRDP "failsafe" error
+          # Update XRDP startwm.sh
           sudo bash -c 'cat > /etc/xrdp/startwm.sh' <<'EOF'
           #!/bin/sh
           if [ -r /etc/default/locale ]; then
               . /etc/default/locale
               export LANG LANGUAGE
           fi
-          startxfce4
+          mate-session
           EOF
           sudo chmod +x /etc/xrdp/startwm.sh
 
