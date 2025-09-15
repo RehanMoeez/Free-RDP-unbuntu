@@ -6,14 +6,14 @@ on:
 jobs:
   secure-rdp:
     runs-on: ubuntu-latest
-    timeout-minutes: 360
+    timeout-minutes: 360   # 6 hours
 
     steps:
-      - name: Configure Core RDP Settings
+      - name: Install Desktop + RDP
         run: |
           sudo apt update
-          sudo apt install -y xrdp xfce4
-          echo "xfce4-session" > ~/.xsession
+          sudo DEBIAN_FRONTEND=noninteractive apt install -y xrdp lxde dbus-x11
+          echo "lxsession -s LXDE -e LXDE" > ~/.xsession
           sudo systemctl enable xrdp
           sudo systemctl restart xrdp
           sudo ufw allow 3389
@@ -45,16 +45,17 @@ jobs:
       - name: Show Connection Info
         run: |
           echo ""
-          echo "=== RDP ACCESS ==="
+          echo "=== UBUNTU RDP ACCESS ==="
           echo "Address: $TAILSCALE_IP"
           echo "Username: $RDP_USERNAME"
           echo "Password: $RDP_PASSWORD"
-          echo "=================="
+          echo "========================="
           echo ""
 
       - name: Keep Alive
         run: |
-          while true; do
-            echo "[$(date)] RDP Active - Ctrl+C to stop"
+          end=$((SECONDS+21600))  # 6 hours
+          while [ $SECONDS -lt $end ]; do
+            echo "[$(date)] RDP Active - still running..."
             sleep 300
           done
