@@ -1,1 +1,60 @@
+name: Free Ubuntu RDP via Tailscale
 
+on:
+  workflow_dispatch:
+
+jobs:
+  secure-rdp:
+    runs-on: ubuntu-latest
+    timeout-minutes: 360
+
+    steps:
+      - name: Configure Core RDP Settings
+        run: |
+          sudo apt update
+          sudo apt install -y xrdp xfce4
+          echo "xfce4-session" > ~/.xsession
+          sudo systemctl enable xrdp
+          sudo systemctl restart xrdp
+          sudo ufw allow 3389
+
+      - name: Create RDP User with Secure Password
+        run: |
+          username="rdpuser"
+          password=$(tr -dc A-Za-z0-9 </dev/urandom | head -c 16)
+          sudo useradd -m -s /bin/bash $username
+          echo "$username:$password" | sudo chpasswd
+          sudo usermod -aG sudo $username
+          echo "RDP_PASSWORD=$password" >> $GITHUB_ENV
+          echo "RDP_USERNAME=$username" >> $GITHUB_ENV
+
+      - name: Install Tailscale
+        run: |
+          curl -fsSL https://tailscale.com/install.sh | sh
+
+      - name: Establish Tailscale Connection
+        run: |
+          sudo tailscale up --authkey=${{ secrets.TAILSCALE_AUTH_KEY }} --hostname=gh-runner-$GITHUB_RUN_ID
+          tsIP=$(tailscale ip -4 | head -n1)
+          if [ -z "$tsIP" ]; then
+            echo "Tailscale IP not assigned. Exiting."
+            exit 1
+          fi
+          echo "TAILSCALE_IP=$tsIP" >> $GITHUB_ENV
+
+      - name: Show Connection Info
+        run: |
+          echo ""
+          echo "=== RDP ACCESS ==="
+          echo "Address: $TAILSCALE_IP"
+          echo "Username: $RDP_USERNAME"
+          echo "Password: $RDP_PASSWORD"
+          echo "=================="
+          echo ""
+
+      - name: Keep Alive
+        run: |
+          while true; do
+            echo "[$(date)] RDP Active - Ctrl+C to stop"
+            sleep 300
+          done
