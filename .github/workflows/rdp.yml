@@ -6,7 +6,7 @@ on:
 jobs:
   secure-rdp:
     runs-on: ubuntu-latest
-    timeout-minutes: 360   # 6 hours
+    timeout-minutes: 360   # 6 hours max runtime
 
     steps:
       - name: Install XFCE Desktop + RDP
@@ -15,16 +15,27 @@ jobs:
           sudo DEBIAN_FRONTEND=noninteractive apt install -y \
             xrdp xfce4 xfce4-goodies dbus-x11 policykit-1 \
             firefox xterm
-          
-          # Configure XFCE as default session
+
+          # Configure XFCE as the default session
           echo "startxfce4" > ~/.xsession
-          echo "xfce4-session" | sudo tee /etc/skel/.xsession
+          echo "startxfce4" | sudo tee /etc/skel/.xsession
+
+          # Fix for XRDP "failsafe" error
+          sudo bash -c 'cat > /etc/xrdp/startwm.sh' <<'EOF'
+          #!/bin/sh
+          if [ -r /etc/default/locale ]; then
+              . /etc/default/locale
+              export LANG LANGUAGE
+          fi
+          startxfce4
+          EOF
+          sudo chmod +x /etc/xrdp/startwm.sh
 
           # Enable XRDP service
           sudo systemctl enable xrdp
           sudo systemctl restart xrdp
 
-          # Allow RDP firewall port over Tailscale
+          # Allow RDP firewall port (via Tailscale)
           sudo ufw allow 3389 || true
 
       - name: Create RDP User with Secure Password
