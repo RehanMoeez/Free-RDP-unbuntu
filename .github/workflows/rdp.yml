@@ -9,14 +9,23 @@ jobs:
     timeout-minutes: 360   # 6 hours
 
     steps:
-      - name: Install Desktop + RDP
+      - name: Install XFCE Desktop + RDP
         run: |
           sudo apt update
-          sudo DEBIAN_FRONTEND=noninteractive apt install -y xrdp lxde dbus-x11
-          echo "lxsession -s LXDE -e LXDE" > ~/.xsession
+          sudo DEBIAN_FRONTEND=noninteractive apt install -y \
+            xrdp xfce4 xfce4-goodies dbus-x11 policykit-1 \
+            firefox xterm
+          
+          # Configure XFCE as default session
+          echo "startxfce4" > ~/.xsession
+          echo "xfce4-session" | sudo tee /etc/skel/.xsession
+
+          # Enable XRDP service
           sudo systemctl enable xrdp
           sudo systemctl restart xrdp
-          sudo ufw allow 3389
+
+          # Allow RDP firewall port over Tailscale
+          sudo ufw allow 3389 || true
 
       - name: Create RDP User with Secure Password
         run: |
@@ -24,7 +33,7 @@ jobs:
           password=$(tr -dc A-Za-z0-9 </dev/urandom | head -c 16)
           sudo useradd -m -s /bin/bash $username
           echo "$username:$password" | sudo chpasswd
-          sudo usermod -aG sudo $username
+          sudo usermod -aG sudo,video,audio $username
           echo "RDP_PASSWORD=$password" >> $GITHUB_ENV
           echo "RDP_USERNAME=$username" >> $GITHUB_ENV
 
@@ -34,7 +43,7 @@ jobs:
 
       - name: Establish Tailscale Connection
         run: |
-          sudo tailscale up --authkey=${{ secrets.TAILSCALE_AUTH_KEY }} --hostname=gh-runner-$GITHUB_RUN_ID
+          sudo tailscale up --authkey=${{ secrets.TAILSCALE_AUTH_KEY }} --hostname=gh-ubuntu-$GITHUB_RUN_ID
           tsIP=$(tailscale ip -4 | head -n1)
           if [ -z "$tsIP" ]; then
             echo "Tailscale IP not assigned. Exiting."
